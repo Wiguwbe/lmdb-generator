@@ -28,5 +28,6 @@
 [a-zA-Z_][a-zA-Z_0-9]*	{ yylval.str = strdup(yytext); return IDENTIFIER; }
 [0-9]+	{ yylval.str = strdup(yytext); return NUMBER; }
 
+#[^\n]*		{ /* comment, ignore */ }
 [ \t\n]+	{ /* ignore */ }
 %%
