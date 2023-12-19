@@ -1,0 +1,9 @@
+package "ddl"
+version "0.1"
+purpose "Generate LMDB functions from database schema"
+usage "ddl [OPTION]... [file]"
+
+args "--default-optional -u -F cli"
+
+option "output-dir" o "Output directory for generated files"
+	string typestr="dir" default="."

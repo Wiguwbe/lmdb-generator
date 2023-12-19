@@ -1,0 +1,10 @@
+out/*
+ddl
+ddl.c
+ddl.h
+lex.yy.c
+*.o
+tpl-*
+core*
+cli.c
+cli.h
