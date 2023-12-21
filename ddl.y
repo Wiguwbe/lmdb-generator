@@ -182,7 +182,7 @@ void add_field(struct field_list *fl, struct field field)
 
 void add_table(struct table *table)
 {
-	print_table(table);
+	//print_table(table);
 	void *np = realloc(tables, (tables_len+1)*sizeof(struct table));
 	if(!np)
 	{
@@ -219,7 +219,7 @@ void add_table(struct table *table)
 
 void add_index(struct index *ndx)
 {
-	print_index(ndx);
+	//print_index(ndx);
 	void *np = realloc(indexes, (indexes_len+1)*sizeof(struct index));
 	if(!np)
 	{
@@ -303,7 +303,8 @@ static int tpl_init(FILE *f, void *_unused)
 {
 	struct init_ctx ctx = {
 		tables, tables_len,
-		indexes, indexes_len
+		indexes, indexes_len,
+		args_info.prefix_arg
 	};
 	return init_gen(f, &ctx);
 }
@@ -313,7 +314,8 @@ static int tpl_table(FILE *f, void *ptr_table)
 	struct table_ctx ctx = {
 		(struct table*)ptr_table,
 		tables, tables_len,
-		indexes, indexes_len
+		indexes, indexes_len,
+		args_info.prefix_arg
 	};
 	return table_gen(f, &ctx);
 }
@@ -355,7 +357,7 @@ void generate(void)
 	}
 	char *fname;
 
-	if(asprintf(&fname, "%s/common.h", args_info.output_dir_arg) < 0)
+	if(asprintf(&fname, "%s/%scommon.h", args_info.output_dir_arg, args_info.prefix_arg) < 0)
 	{
 		fprintf(stderr, "failed to allocate memory\n");
 		exit(1);
@@ -363,7 +365,7 @@ void generate(void)
 	gen_template(fname, tpl_common, NULL);
 	free(fname);
 
-	if(asprintf(&fname, "%s/init.c", args_info.output_dir_arg) < 0)
+	if(asprintf(&fname, "%s/%sinit.c", args_info.output_dir_arg, args_info.prefix_arg) < 0)
 	{
 		fprintf(stderr, "failed to allocate memory\n");
 		exit(1);
@@ -372,7 +374,7 @@ void generate(void)
 	free(fname);
 	for(int i=0;i<tables_len;i++)
 	{
-		if(asprintf(&fname, "out/%s.c", tables[i].name) < 0)
+		if(asprintf(&fname, "%s/%s%s.c", args_info.output_dir_arg, args_info.prefix_arg, tables[i].name) < 0)
 		{
 			fprintf(stderr, "failed to allocate memory\n");
 			exit(1);

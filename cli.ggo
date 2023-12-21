@@ -7,3 +7,6 @@ args "--default-optional -u -F cli"
 
 option "output-dir" o "Output directory for generated files"
 	string typestr="dir" default="."
+
+option "prefix" p "Prefix for generated files"
+  string typestr="prefix" default="db_"

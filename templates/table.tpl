@@ -12,11 +12,13 @@
 	int tables_len;
 	struct index *indexes;
 	int indexes_len;
+	char *prefix;
 $}
 
 #include <stdlib.h>
 #include <string.h>
-#include "common.h"
+#include <errno.h>
+#include "{>s $prefix >}common.h"
 
 int list_{>s $table->name >}s(db *db, MDB_txn *ptxn, size_t *out_len, db_{>s $table->name >} **out_items)
 {
@@ -26,6 +28,9 @@ int list_{>s $table->name >}s(db *db, MDB_txn *ptxn, size_t *out_len, db_{>s $ta
 	MDB_cursor *cursor;
 	MDB_stat stat;
 	db_{>s $table->name >} *out_data, *data_ptr;
+
+	*out_len = 0;
+	*out_items = NULL;
 
 	rc = mdb_txn_begin(db->env, ptxn, MDB_RDONLY, &txn);
 	if(rc)
@@ -324,14 +329,17 @@ int delete_{>s $table->name >}(db *db, MDB_txn *ptxn, uint64_t item_id, db_{>s $
 					}
 					db_{>s other_table->name >} link_item;
 					memcpy(&link_item, data.mv_data, data.mv_size);
-					link_item.{>s o_fl->item.name >} = 0;
-					key = (MDB_val){sizeof(uint64_t), &link_item.{>s other_table->pk->name >}};
-					data = (MDB_val){sizeof(uint64_t), &link_item};
-					rc = mdb_put(txn, db->{>s other_table->name >}, &key, &data, 0);
-					if(rc)
+					if(link_item.{>s o_fl->item.name >} == out_item->{>s m_fl->item.name >})
 					{
-						fprintf(stderr, "Failed to update {>s other_table->name >}s: %s\n", mdb_strerror(rc));
-						goto _defer_1;
+						link_item.{>s o_fl->item.name >} = 0;
+						key = (MDB_val){sizeof(uint64_t), &link_item.{>s other_table->pk->name >}};
+						data = (MDB_val){sizeof(db_{>s other_table->name >}), &link_item};
+						rc = mdb_put(txn, db->{>s other_table->name >}, &key, &data, 0);
+						if(rc)
+						{
+							fprintf(stderr, "Failed to update {>s other_table->name >}s: %s\n", mdb_strerror(rc));
+							goto _defer_1;
+						}
 					}
 				}
 				{{ break; }}
@@ -362,7 +370,7 @@ int delete_{>s $table->name >}(db *db, MDB_txn *ptxn, uint64_t item_id, db_{>s $
 					{* defer if(cursor) cursor.close() *}
 					key = (MDB_val){sizeof(uint64_t), &out_item->{>s $table->pk->name >}};
 
-					while((rc = mdb_cursor_get(cursor, &key, &data, MDB_FIRST_DUP)) == 0)
+					while((rc = mdb_cursor_get(cursor, &key, &data, MDB_SET)) == 0)
 					{
 						MDB_val key2 = {sizeof(uint64_t), data.mv_data };
 						MDB_val data2;
@@ -429,14 +437,16 @@ _defer_1:
 	{% if strcmp(ndx->target, $table->name) %}
 		{{continue;}}
 	{% fi %}
-	int {>s ndx->name >}s(db *db, MDB_txn *ptxn, uint64_t parent_id, size_t *out_len, db_{>s $table->name >} **out_items)
+	int get_{>s ndx->name >}s(db *db, MDB_txn *ptxn, uint64_t parent_id, size_t *out_len, db_{>s $table->name >} **out_items)
 	{
 		MDB_txn *txn;
 		MDB_cursor *cursor;
 		int rc;
 		MDB_val key, data;
 		db_{>s $table->name >} *out_array;
-		size_t len = 0;
+
+		*out_len = 0;
+		*out_items = NULL;
 
 		rc = mdb_txn_begin(db->env, ptxn, MDB_RDONLY, &txn);
 		if(rc)
@@ -454,7 +464,7 @@ _defer_1:
 		}
 		{* defer mdb_cursor_close(cursor) *}
 		key = (MDB_val){sizeof(uint64_t), &parent_id};
-		rc = mdb_cursor_get(cursor, &key, &data, MDB_FIRST_DUP);
+		rc = mdb_cursor_get(cursor, &key, &data, MDB_SET);
 		if(rc == MDB_NOTFOUND)
 		{
 			rc = 0;
@@ -466,40 +476,45 @@ _defer_1:
 			goto _defer_2;
 		}
 
-		while(1)
+		rc = mdb_cursor_count(cursor, out_len);
+		if(rc)
 		{
-			void *np = realloc(out_array, (len+1)*sizeof(db_{>s $table->name >}));
-			if(!np)
-			{
-				fprintf(stderr, "Failed to allocate memory\n");
-				free(out_array);
-				rc = 1;
-				goto _defer_2;
-			}
-			out_array = (db_{>s $table->name >}*)np;
+			fprintf(stderr, "Failed to get cursor count: %s\n", mdb_strerror(rc));
+			goto _defer_2;
+		}
+
+		out_array = (db_{>s $table->name >}*)malloc(sizeof(db_{>s $table->name>}) * (*out_len));
+		if(!out_array)
+		{
+			rc = ENOMEM;
+			fprintf(stderr, "Failed to allocate memory\n");
+			goto _defer_2;
+		}
+
+		db_{>s $table->name >} *data_ptr = out_array;
+		for(int i=0;i<*out_len;i++)
+		{
 			uint64_t item_id = *((uint64_t*)data.mv_data);
-			rc = get_{>s $table->name >}(db, txn, item_id, out_array+len);
+			// NULL as this is a read transaction
+			rc = get_{>s $table->name >}(db, NULL, item_id, out_array+i);
 			if(rc)
 			{
 				free(out_array);
 				goto _defer_2;
 			}
-			// next
-			len ++;
 			rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT_DUP);
 			if(rc == 0)
 				continue;
-			if(rc == MDB_NOTFOUND)
+			if((rc == MDB_NOTFOUND && i < ((*out_len)-1)) || rc != MDB_NOTFOUND)
 			{
-				rc = 0;
-				break;
+				fprintf(stderr, "Failed to move cursor: %s\n", mdb_strerror(rc));
+				free(out_array);
+				goto _defer_2;
 			}
-			fprintf(stderr, "Failed to move cursor: %s\n", mdb_strerror(rc));
-			free(out_array);
-			goto _defer_2;
+			// else
+			rc = 0;
 		}
 
-		*out_len = len;
 		*out_items = out_array;
 	_defer_2:
 		mdb_cursor_close(cursor);

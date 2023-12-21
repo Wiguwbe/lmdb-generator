@@ -8,3 +8,4 @@ tpl-*
 core*
 cli.c
 cli.h
+test/db*

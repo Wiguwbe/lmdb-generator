@@ -34,6 +34,9 @@ templates/templates.o: $(TEMPLATES)
 templates/tpl-%.h: $(TEMPLATES)
 	make -C templates
 
+test: ddl
+	cd tests && ./run_test.sh
+
 clean:
 	rm -f *.o ddl.c ddl.h cli.c cli.h lex.yy.c
 	make -C templates clean

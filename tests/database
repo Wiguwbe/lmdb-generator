@@ -1,0 +1,45 @@
+
+#
+# for simple tests
+#
+table plain {
+	id ID PK,
+	name CHAR(16),
+	age INT
+}
+
+#
+# for 1-1 relations (links)
+#
+table link_a {
+	id ID PK,
+	link_id ID FK(link_b.id),
+	data INT
+}
+table link_b {
+	id ID PK,
+	link_id ID FK(link_a.id),
+	data INT
+}
+
+#
+# for index relations
+#
+table parent {
+	id ID PK,
+	data INT
+}
+table child {
+	id ID PK,
+	parent_id ID FK(parent.id),
+	data INT
+}
+index(child) parent_children {
+	parent_id
+}
+# for non updating deletals
+table bastard {
+	id ID PK,
+	parent_id ID FK(parent.id),
+	data INT
+}

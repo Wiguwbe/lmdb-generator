@@ -9,11 +9,12 @@
 	int tables_len;
 	struct index *indexes;
 	int indexes_len;
+	char *prefix;
 $}
 #include <stdio.h>
 #include <string.h>
 // lmdb is included there
-#include "common.h"
+#include "{>s $prefix >}common.h"
 
 // internal structure for initialization
 struct _dbi_name
@@ -50,7 +51,7 @@ int db_init(db *db, char *path)
 		return 1;
 	}
 
-	rc = mdb_env_open(db->env, path, 0, 0644);
+	rc = mdb_env_open(db->env, path, MDB_NOTLS, 0644);
 	if(rc)
 	{
 		fprintf(stderr, "Error opening DB environment: %s\n", mdb_strerror(rc));
