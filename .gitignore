@@ -9,3 +9,4 @@ core*
 cli.c
 cli.h
 test/db*
+test/test_main
